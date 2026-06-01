@@ -38,19 +38,43 @@
       </div>
 
       <div id="result-section" class="section hidden">
-        <div class="result-header">
-          <h2>טקסט מתוקן</h2>
-          <div class="result-actions">
-            <button id="copyBtn" class="btn-secondary">העתק</button>
-            <button id="newBtn" class="btn-secondary">הקלטה חדשה</button>
+
+        <!-- תמלול -->
+        <div class="result-block">
+          <div class="result-header">
+            <h2>תמלול</h2>
+            <div class="result-actions">
+              <button id="copyRawBtn" class="btn-secondary">העתק</button>
+              <button id="newBtn" class="btn-secondary">הקלטה חדשה</button>
+            </div>
+          </div>
+          <textarea id="rawTextarea" class="result-text"></textarea>
+        </div>
+
+        <!-- פרומפט -->
+        <details id="promptDetails" class="raw-details">
+          <summary>פרומפט לתיקון</summary>
+          <textarea id="promptTextarea" class="prompt-text"></textarea>
+        </details>
+
+        <!-- כפתור תיקון + סטטוס -->
+        <div class="correct-row">
+          <button id="correctBtn" class="btn-primary">תקן טקסט</button>
+          <div id="correctStatus" class="status-msg hidden">
+            <div class="spinner"></div>
+            <span>מתקן טקסט...</span>
           </div>
         </div>
-        <textarea id="resultText" class="result-text"></textarea>
 
-        <details id="rawDetails" class="raw-details">
-          <summary>טקסט גולמי</summary>
-          <div id="rawText" class="raw-text"></div>
-        </details>
+        <!-- טקסט מתוקן -->
+        <div id="corrected-block" class="result-block hidden">
+          <div class="result-header">
+            <h2>טקסט מתוקן</h2>
+            <button id="copyBtn" class="btn-secondary">העתק</button>
+          </div>
+          <textarea id="correctedText" class="result-text"></textarea>
+        </div>
+
       </div>
 
       <div id="history-section" class="section hidden">

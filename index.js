@@ -116,15 +116,17 @@ app.get('/status/:jobId', async (req, res) => {
   }
 });
 
+const DEFAULT_SYSTEM_PROMPT = 'אתה עוזר לתקן שיבושי תמלול של דיבור לטקסט בעברית. תקן שגיאות כתיב, חלוקת מילים שגויה ושיבושי הקלטה. החזר רק את הטקסט המתוקן, ללא הסברים.';
+
 app.post('/correct', express.json(), async (req, res) => {
-  const { text } = req.body;
+  const { text, systemPrompt } = req.body;
   if (!text) return res.status(400).json({ error: 'No text provided' });
 
   try {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 4096,
-      system: 'אתה עוזר לתקן שיבושי תמלול של דיבור לטקסט בעברית. תקן שגיאות כתיב, חלוקת מילים שגויה ושיבושי הקלטה. החזר רק את הטקסט המתוקן, ללא הסברים.',
+      system: systemPrompt || DEFAULT_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: text }],
     });
     const corrected = response.content.find(b => b.type === 'text')?.text ?? '';

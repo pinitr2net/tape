@@ -130,12 +130,18 @@ main {
   border-radius: 8px;
 }
 
-/* Result */
+/* Result Blocks */
+.result-block {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .result-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  width: 100%;
 }
 
 .result-header h2 {
@@ -157,16 +163,46 @@ main {
   font-size: 0.875rem;
   cursor: pointer;
   transition: background 0.1s;
+  font-family: inherit;
 }
 
 .btn-secondary:hover {
   background: #ebebeb;
 }
 
+.btn-primary {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px;
+  background: #1d1d1f;
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  font-family: inherit;
+}
+
+.btn-primary:hover {
+  opacity: 0.8;
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.correct-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
 .result-text {
   width: 100%;
-  min-height: 180px;
-  padding: 16px;
+  min-height: 140px;
+  padding: 14px 16px;
   border: 1px solid #d1d1d6;
   border-radius: 12px;
   background: white;
@@ -178,7 +214,7 @@ main {
   color: #1d1d1f;
 }
 
-/* Raw Collapsible */
+/* Prompt Collapsible */
 .raw-details {
   width: 100%;
   border: 1px solid #d1d1d6;
@@ -214,14 +250,20 @@ main {
   transform: rotate(90deg);
 }
 
-.raw-text {
+.prompt-text {
+  width: 100%;
+  min-height: 100px;
   padding: 12px 16px;
-  font-size: 0.9rem;
-  line-height: 1.7;
-  color: #3d3d3d;
+  border: none;
   border-top: 1px solid #d1d1d6;
+  background: white;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  resize: vertical;
   direction: rtl;
-  white-space: pre-wrap;
+  font-family: inherit;
+  color: #3d3d3d;
+  outline: none;
 }
 
 /* History */

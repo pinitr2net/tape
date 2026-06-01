@@ -1,3 +1,5 @@
+const DEFAULT_PROMPT = 'אתה עוזר לתקן שיבושי תמלול של דיבור לטקסט בעברית. תקן שגיאות כתיב, חלוקת מילים שגויה ושיבושי הקלטה. החזר רק את הטקסט המתוקן, ללא הסברים.';
+
 const recordBtn = document.getElementById('recordBtn');
 const timer = document.getElementById('timer');
 const hint = document.getElementById('hint');
@@ -6,8 +8,13 @@ const statusText = document.getElementById('statusText');
 const playerSection = document.getElementById('player-section');
 const audioPlayer = document.getElementById('audioPlayer');
 const resultSection = document.getElementById('result-section');
-const resultText = document.getElementById('resultText');
-const rawText = document.getElementById('rawText');
+const rawTextarea = document.getElementById('rawTextarea');
+const promptTextarea = document.getElementById('promptTextarea');
+const correctBtn = document.getElementById('correctBtn');
+const correctStatus = document.getElementById('correctStatus');
+const correctedBlock = document.getElementById('corrected-block');
+const correctedText = document.getElementById('correctedText');
+const copyRawBtn = document.getElementById('copyRawBtn');
 const copyBtn = document.getElementById('copyBtn');
 const newBtn = document.getElementById('newBtn');
 const historySection = document.getElementById('history-section');
@@ -22,6 +29,7 @@ let seconds = 0;
 let db = null;
 let currentBlobUrl = null;
 let selectedId = null;
+let currentRecordingId = null;
 
 // --- IndexedDB ---
 
@@ -50,6 +58,7 @@ function dbOp(mode, fn) {
 }
 
 const saveRecording = data => dbOp('readwrite', store => store.add(data));
+const updateRecording = data => dbOp('readwrite', store => store.put(data));
 const getRecording = id => dbOp('readonly', store => store.get(id));
 const getAllRecordings = () => dbOp('readonly', store => store.getAll());
 
@@ -83,11 +92,28 @@ function setAudio(blob, mimeType) {
   playerSection.classList.remove('hidden');
 }
 
-// --- Result ---
+// --- Show transcription (after recording) ---
 
-function showResult(corrected, raw) {
-  resultText.value = corrected;
-  rawText.textContent = raw;
+function showTranscription(raw) {
+  rawTextarea.value = raw;
+  promptTextarea.value = DEFAULT_PROMPT;
+  correctedBlock.classList.add('hidden');
+  correctedText.value = '';
+  resultSection.classList.remove('hidden');
+}
+
+// --- Show full result (transcription + correction, e.g. from history) ---
+
+function showFullResult(raw, corrected, systemPrompt) {
+  rawTextarea.value = raw;
+  promptTextarea.value = systemPrompt || DEFAULT_PROMPT;
+  if (corrected) {
+    correctedText.value = corrected;
+    correctedBlock.classList.remove('hidden');
+  } else {
+    correctedBlock.classList.add('hidden');
+    correctedText.value = '';
+  }
   resultSection.classList.remove('hidden');
 }
 
@@ -112,9 +138,8 @@ async function loadHistory() {
     const item = document.createElement('button');
     item.className = 'history-item' + (rec.id === selectedId ? ' selected' : '');
     item.dataset.id = rec.id;
-    const preview = rec.correctedText.length > 60
-      ? rec.correctedText.slice(0, 60) + '...'
-      : rec.correctedText;
+    const previewSource = rec.correctedText || rec.rawText || '';
+    const preview = previewSource.length > 60 ? previewSource.slice(0, 60) + '...' : previewSource;
     item.innerHTML = `
       <span class="history-date">${formatDate(new Date(rec.timestamp))}</span>
       <span class="history-preview">${preview}</span>
@@ -126,9 +151,10 @@ async function loadHistory() {
 
 async function selectRecording(id) {
   selectedId = id;
+  currentRecordingId = id;
   const rec = await getRecording(id);
   setAudio(rec.audioBlob, rec.mimeType);
-  showResult(rec.correctedText, rec.rawText);
+  showFullResult(rec.rawText, rec.correctedText, rec.systemPrompt);
   document.querySelectorAll('.history-item').forEach(item => {
     item.classList.toggle('selected', Number(item.dataset.id) === id);
   });
@@ -201,7 +227,7 @@ recordBtn.addEventListener('click', () => {
   }
 });
 
-// --- Process ---
+// --- Transcribe (no auto-correction) ---
 
 async function processAudio(blob, ext, mimeType) {
   try {
@@ -216,26 +242,19 @@ async function processAudio(blob, ext, mimeType) {
     setStatus('מתמלל...');
     const rawTranscription = await pollStatus(jobId);
 
-    setStatus('מתקן טקסט...');
-    const correctRes = await fetch('/correct', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: rawTranscription }),
-    });
-    if (!correctRes.ok) throw new Error('שגיאה בתיקון טקסט');
-    const { corrected } = await correctRes.json();
-
     clearStatus();
-    showResult(corrected, rawTranscription);
+    showTranscription(rawTranscription);
 
     const id = await saveRecording({
       timestamp: new Date().toISOString(),
       rawText: rawTranscription,
-      correctedText: corrected,
+      correctedText: null,
+      systemPrompt: null,
       audioBlob: blob,
       mimeType,
     });
     selectedId = id;
+    currentRecordingId = id;
     await loadHistory();
   } catch (err) {
     clearStatus();
@@ -254,10 +273,57 @@ async function pollStatus(jobId) {
   }
 }
 
+// --- Manual correction ---
+
+correctBtn.addEventListener('click', async () => {
+  const text = rawTextarea.value.trim();
+  if (!text) return;
+
+  const systemPrompt = promptTextarea.value.trim() || DEFAULT_PROMPT;
+
+  correctBtn.disabled = true;
+  correctStatus.classList.remove('hidden');
+
+  try {
+    const res = await fetch('/correct', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, systemPrompt }),
+    });
+    if (!res.ok) throw new Error('שגיאה בתיקון טקסט');
+    const { corrected } = await res.json();
+
+    correctedText.value = corrected;
+    correctedBlock.classList.remove('hidden');
+
+    if (currentRecordingId) {
+      const rec = await getRecording(currentRecordingId);
+      if (rec) {
+        rec.correctedText = corrected;
+        rec.systemPrompt = systemPrompt;
+        await updateRecording(rec);
+        await loadHistory();
+      }
+    }
+  } catch (err) {
+    alert('שגיאה: ' + err.message);
+  } finally {
+    correctBtn.disabled = false;
+    correctStatus.classList.add('hidden');
+  }
+});
+
 // --- Buttons ---
 
+copyRawBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(rawTextarea.value).then(() => {
+    copyRawBtn.textContent = 'הועתק!';
+    setTimeout(() => { copyRawBtn.textContent = 'העתק'; }, 2000);
+  });
+});
+
 copyBtn.addEventListener('click', () => {
-  navigator.clipboard.writeText(resultText.value).then(() => {
+  navigator.clipboard.writeText(correctedText.value).then(() => {
     copyBtn.textContent = 'הועתק!';
     setTimeout(() => { copyBtn.textContent = 'העתק'; }, 2000);
   });
@@ -265,8 +331,10 @@ copyBtn.addEventListener('click', () => {
 
 newBtn.addEventListener('click', () => {
   resultSection.classList.add('hidden');
-  resultText.value = '';
-  rawText.textContent = '';
+  rawTextarea.value = '';
+  correctedText.value = '';
+  correctedBlock.classList.add('hidden');
+  currentRecordingId = null;
 });
 
 // --- Init ---
