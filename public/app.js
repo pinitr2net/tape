@@ -66,6 +66,7 @@ function dbOp(mode, fn) {
 
 const saveRecording = data => dbOp('readwrite', store => store.add(data));
 const updateRecording = data => dbOp('readwrite', store => store.put(data));
+const deleteRecording = id => dbOp('readwrite', store => store.delete(id));
 const getRecording = id => dbOp('readonly', store => store.get(id));
 const getAllRecordings = () => dbOp('readonly', store => store.getAll());
 
@@ -169,16 +170,41 @@ async function loadHistory() {
   historySection.classList.remove('hidden');
   historyList.innerHTML = '';
   [...recordings].reverse().forEach(rec => {
-    const item = document.createElement('button');
+    const item = document.createElement('div');
     item.className = 'history-item' + (rec.id === selectedId ? ' selected' : '');
     item.dataset.id = rec.id;
     const previewSource = rec.correctedText || rec.rawText || '';
     const preview = previewSource.length > 60 ? previewSource.slice(0, 60) + '...' : previewSource;
-    item.innerHTML = `
+
+    const info = document.createElement('div');
+    info.className = 'history-info';
+    info.innerHTML = `
       <span class="history-date">${formatDate(new Date(rec.timestamp))}</span>
       <span class="history-preview">${preview}</span>
     `;
-    item.addEventListener('click', () => selectRecording(rec.id));
+    info.addEventListener('click', () => selectRecording(rec.id));
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'history-delete';
+    delBtn.textContent = '×';
+    delBtn.title = 'מחק הקלטה';
+    delBtn.addEventListener('click', async e => {
+      e.stopPropagation();
+      await deleteRecording(rec.id);
+      if (selectedId === rec.id) {
+        selectedId = null;
+        currentRecordingId = null;
+        resultSection.classList.add('hidden');
+        playerSection.classList.add('hidden');
+        transcribeBtn.classList.add('hidden');
+        if (currentBlobUrl) { URL.revokeObjectURL(currentBlobUrl); currentBlobUrl = null; }
+        audioPlayer.src = '';
+      }
+      await loadHistory();
+    });
+
+    item.appendChild(info);
+    item.appendChild(delBtn);
     historyList.appendChild(item);
   });
 }
@@ -191,8 +217,8 @@ async function selectRecording(id) {
   const rec = await getRecording(id);
   setAudio(rec.audioBlob, rec.mimeType);
   showFullResult(rec.rawText, rec.correctedText, rec.systemPrompt);
-  document.querySelectorAll('.history-item').forEach(item => {
-    item.classList.toggle('selected', Number(item.dataset.id) === id);
+  document.querySelectorAll('.history-item').forEach(el => {
+    el.classList.toggle('selected', Number(el.dataset.id) === id);
   });
 }
 
