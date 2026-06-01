@@ -117,21 +117,11 @@ function afterAudioReady(blob, ext, mimeType) {
   }
 }
 
-// --- Prompt persistence ---
-
-function loadSavedPrompt() {
-  return localStorage.getItem('tapePrompt') || DEFAULT_PROMPT;
-}
-
-promptTextarea.addEventListener('input', () => {
-  localStorage.setItem('tapePrompt', promptTextarea.value);
-});
-
 // --- Show transcription (after RunPod) ---
 
 function showTranscription(raw) {
   rawTextarea.value = raw;
-  promptTextarea.value = loadSavedPrompt();
+  promptTextarea.value = DEFAULT_PROMPT;
   correctedBlock.classList.add('hidden');
   correctedText.value = '';
   resultSection.classList.remove('hidden');
@@ -426,7 +416,6 @@ newBtn.addEventListener('click', () => {
 // --- Init ---
 
 (async () => {
-  promptTextarea.value = loadSavedPrompt();
   db = await openDB();
   await loadHistory();
 })();
