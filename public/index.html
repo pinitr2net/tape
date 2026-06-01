@@ -25,13 +25,16 @@
         </button>
 
         <div id="timer" class="timer hidden">00:00</div>
-
         <p id="hint" class="hint">לחץ להקלטה</p>
 
         <div id="statusMsg" class="status-msg hidden">
           <div class="spinner"></div>
           <span id="statusText"></span>
         </div>
+      </div>
+
+      <div id="player-section" class="section hidden">
+        <audio id="audioPlayer" controls></audio>
       </div>
 
       <div id="result-section" class="section hidden">
@@ -43,6 +46,16 @@
           </div>
         </div>
         <textarea id="resultText" class="result-text"></textarea>
+
+        <details id="rawDetails" class="raw-details">
+          <summary>טקסט גולמי</summary>
+          <div id="rawText" class="raw-text"></div>
+        </details>
+      </div>
+
+      <div id="history-section" class="section hidden">
+        <h2 class="section-title">הקלטות אחרונות</h2>
+        <div id="historyList" class="history-list"></div>
       </div>
     </main>
   </div>
