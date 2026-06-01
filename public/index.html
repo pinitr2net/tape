@@ -27,6 +27,16 @@
         <div id="timer" class="timer hidden">00:00</div>
         <p id="hint" class="hint">לחץ להקלטה</p>
 
+        <label id="uploadLabel" class="btn-secondary upload-label">
+          העלה קובץ אודיו / וידאו
+          <input type="file" id="fileInput" accept="audio/*,video/*">
+        </label>
+
+        <label class="auto-check-label">
+          <input type="checkbox" id="autoTranscribeCheck" checked>
+          תמלל אוטומטית לאחר הקלטה / העלאה
+        </label>
+
         <div id="statusMsg" class="status-msg hidden">
           <div class="spinner"></div>
           <span id="statusText"></span>
@@ -35,6 +45,7 @@
 
       <div id="player-section" class="section hidden">
         <audio id="audioPlayer" controls></audio>
+        <button id="transcribeBtn" class="btn-primary hidden">תמלל</button>
       </div>
 
       <div id="result-section" class="section hidden">
@@ -57,7 +68,7 @@
           <textarea id="promptTextarea" class="prompt-text"></textarea>
         </details>
 
-        <!-- כפתור תיקון + סטטוס -->
+        <!-- כפתור תיקון -->
         <div class="correct-row">
           <button id="correctBtn" class="btn-primary">תקן טקסט</button>
           <div id="correctStatus" class="status-msg hidden">

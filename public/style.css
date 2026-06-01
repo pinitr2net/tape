@@ -124,6 +124,33 @@ main {
   to { transform: rotate(360deg); }
 }
 
+/* Upload Label */
+.upload-label {
+  cursor: pointer;
+  display: inline-block;
+}
+
+.upload-label input[type="file"] {
+  display: none;
+}
+
+/* Auto-transcribe checkbox */
+.auto-check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: #6e6e73;
+  cursor: pointer;
+  user-select: none;
+}
+
+.auto-check-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
 /* Audio Player */
 #audioPlayer {
   width: 100%;

@@ -3,10 +3,14 @@ const DEFAULT_PROMPT = 'אתה עוזר לתקן שיבושי תמלול של ד
 const recordBtn = document.getElementById('recordBtn');
 const timer = document.getElementById('timer');
 const hint = document.getElementById('hint');
+const uploadLabel = document.getElementById('uploadLabel');
+const fileInput = document.getElementById('fileInput');
+const autoTranscribeCheck = document.getElementById('autoTranscribeCheck');
 const statusMsg = document.getElementById('statusMsg');
 const statusText = document.getElementById('statusText');
 const playerSection = document.getElementById('player-section');
 const audioPlayer = document.getElementById('audioPlayer');
+const transcribeBtn = document.getElementById('transcribeBtn');
 const resultSection = document.getElementById('result-section');
 const rawTextarea = document.getElementById('rawTextarea');
 const promptTextarea = document.getElementById('promptTextarea');
@@ -30,6 +34,9 @@ let db = null;
 let currentBlobUrl = null;
 let selectedId = null;
 let currentRecordingId = null;
+let pendingBlob = null;
+let pendingExt = null;
+let pendingMimeType = null;
 
 // --- IndexedDB ---
 
@@ -92,7 +99,24 @@ function setAudio(blob, mimeType) {
   playerSection.classList.remove('hidden');
 }
 
-// --- Show transcription (after recording) ---
+// --- After audio is ready: auto-transcribe or show button ---
+
+function afterAudioReady(blob, ext, mimeType) {
+  setAudio(blob, mimeType);
+  resultSection.classList.add('hidden');
+
+  if (autoTranscribeCheck.checked) {
+    transcribeBtn.classList.add('hidden');
+    runTranscription(blob, ext, mimeType);
+  } else {
+    pendingBlob = blob;
+    pendingExt = ext;
+    pendingMimeType = mimeType;
+    transcribeBtn.classList.remove('hidden');
+  }
+}
+
+// --- Show transcription (after RunPod) ---
 
 function showTranscription(raw) {
   rawTextarea.value = raw;
@@ -102,7 +126,7 @@ function showTranscription(raw) {
   resultSection.classList.remove('hidden');
 }
 
-// --- Show full result (transcription + correction, e.g. from history) ---
+// --- Show full result (from history) ---
 
 function showFullResult(raw, corrected, systemPrompt) {
   rawTextarea.value = raw;
@@ -152,6 +176,8 @@ async function loadHistory() {
 async function selectRecording(id) {
   selectedId = id;
   currentRecordingId = id;
+  transcribeBtn.classList.add('hidden');
+  pendingBlob = null;
   const rec = await getRecording(id);
   setAudio(rec.audioBlob, rec.mimeType);
   showFullResult(rec.rawText, rec.correctedText, rec.systemPrompt);
@@ -167,6 +193,7 @@ function resetUI() {
   micIcon.classList.remove('hidden');
   stopIcon.classList.add('hidden');
   timer.classList.add('hidden');
+  uploadLabel.style.display = '';
   hint.textContent = 'לחץ להקלטה';
   clearStatus();
   seconds = 0;
@@ -194,8 +221,7 @@ async function startRecording() {
       const ext = mimeType.includes('ogg') ? '.ogg' : mimeType.includes('mp4') ? '.mp4' : '.webm';
 
       resetUI();
-      setAudio(blob, mimeType);
-      await processAudio(blob, ext, mimeType);
+      afterAudioReady(blob, ext, mimeType);
     };
 
     mediaRecorder.start();
@@ -203,8 +229,8 @@ async function startRecording() {
     micIcon.classList.add('hidden');
     stopIcon.classList.remove('hidden');
     timer.classList.remove('hidden');
+    uploadLabel.style.display = 'none';
     hint.textContent = 'לחץ לעצירה';
-    resultSection.classList.add('hidden');
 
     seconds = 0;
     timerInterval = setInterval(updateTimer, 1000);
@@ -227,16 +253,39 @@ recordBtn.addEventListener('click', () => {
   }
 });
 
-// --- Transcribe (no auto-correction) ---
+// --- File Upload ---
 
-async function processAudio(blob, ext, mimeType) {
+fileInput.addEventListener('change', async e => {
+  const file = e.target.files[0];
+  fileInput.value = '';
+  if (!file) return;
+
+  const mimeType = file.type || 'audio/webm';
+  const nameParts = file.name.split('.');
+  const ext = nameParts.length > 1 ? '.' + nameParts.pop() : '.bin';
+
+  afterAudioReady(file, ext, mimeType);
+});
+
+// --- Manual transcribe button ---
+
+transcribeBtn.addEventListener('click', () => {
+  if (!pendingBlob) return;
+  transcribeBtn.classList.add('hidden');
+  runTranscription(pendingBlob, pendingExt, pendingMimeType);
+  pendingBlob = null;
+});
+
+// --- Transcription ---
+
+async function runTranscription(blob, ext, mimeType) {
   try {
-    setStatus('מעלה הקלטה...');
+    setStatus('מעלה קובץ...');
     const formData = new FormData();
     formData.append('audio', blob, `recording${ext}`);
 
     const uploadRes = await fetch('/transcribe', { method: 'POST', body: formData });
-    if (!uploadRes.ok) throw new Error('שגיאה בהעלאת הקלטה');
+    if (!uploadRes.ok) throw new Error('שגיאה בהעלאה');
     const { jobId } = await uploadRes.json();
 
     setStatus('מתמלל...');
@@ -280,7 +329,6 @@ correctBtn.addEventListener('click', async () => {
   if (!text) return;
 
   const systemPrompt = promptTextarea.value.trim() || DEFAULT_PROMPT;
-
   correctBtn.disabled = true;
   correctStatus.classList.remove('hidden');
 
@@ -331,10 +379,12 @@ copyBtn.addEventListener('click', () => {
 
 newBtn.addEventListener('click', () => {
   resultSection.classList.add('hidden');
+  transcribeBtn.classList.add('hidden');
   rawTextarea.value = '';
   correctedText.value = '';
   correctedBlock.classList.add('hidden');
   currentRecordingId = null;
+  pendingBlob = null;
 });
 
 // --- Init ---
