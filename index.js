@@ -10,6 +10,14 @@ const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/cl
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const BASE_URL = (
+  process.env.BASE_URL ||
+  (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null) ||
+  `http://localhost:${PORT}`
+).replace(/\/$/, '');
+
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR);
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 500 * 1024 * 1024 } });
 
@@ -52,9 +60,11 @@ async function initDB() {
 }
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(UPLOADS_DIR));
 app.use(express.json());
 
-const jobRecordings = new Map();
+const jobRecordings = new Map(); // jobId -> recordingId
+const jobFiles = new Map();      // jobId -> local file path
 
 // Serve page.html for /p/:slug routes
 app.get('/p/:slug', (req, res) => {
@@ -155,6 +165,12 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
     const ext = path.extname(req.file.originalname) || '.webm';
     const key = crypto.randomUUID() + ext;
 
+    // Save locally for RunPod (R2 dev URLs are blocked by Cloudflare for non-browser requests)
+    const localPath = path.join(UPLOADS_DIR, key);
+    fs.writeFileSync(localPath, req.file.buffer);
+    const runpodUrl = `${BASE_URL}/uploads/${key}`;
+
+    // Upload to R2 for permanent storage
     await s3.send(new PutObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,
       Key: key,
@@ -175,7 +191,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
       {
         input: {
           model: 'ivrit-ai/whisper-large-v3-turbo-ct2',
-          transcribe_args: { url: audioUrl, language: 'he', verbose: false },
+          transcribe_args: { url: runpodUrl, language: 'he', verbose: false },
         },
       },
       {
@@ -190,6 +206,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
     }
 
     jobRecordings.set(jobId, recordingId);
+    jobFiles.set(jobId, localPath);
     res.json({ jobId, recordingId });
   } catch (err) {
     console.error('Error in /transcribe:', err.response?.data || err.message);
@@ -214,7 +231,9 @@ app.get('/status/:jobId', async (req, res) => {
 
     if (data.status === 'FAILED') {
       console.error('RunPod FAILED:', JSON.stringify(data));
+      fs.unlink(jobFiles.get(jobId) || '', () => {});
       jobRecordings.delete(jobId);
+      jobFiles.delete(jobId);
       return res.status(500).json({ error: data.error || 'RunPod job failed' });
     }
 
@@ -231,6 +250,8 @@ app.get('/status/:jobId', async (req, res) => {
 
     const recordingId = jobRecordings.get(jobId);
     jobRecordings.delete(jobId);
+    fs.unlink(jobFiles.get(jobId) || '', () => {});
+    jobFiles.delete(jobId);
 
     if (recordingId) {
       await pool.query('UPDATE recordings SET raw_text = $1 WHERE id = $2', [text, recordingId]);
