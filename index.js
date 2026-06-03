@@ -3,6 +3,7 @@ const express = require('express');
 const multer = require('multer');
 const axios = require('axios');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 const Anthropic = require('@anthropic-ai/sdk');
 const { Pool } = require('pg');
