@@ -11,10 +11,12 @@
   "license": "ISC",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
+    "@aws-sdk/client-s3": "^3.1061.0",
     "axios": "^1.15.2",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "form-data": "^4.0.5",
-    "multer": "^2.1.1"
+    "multer": "^2.1.1",
+    "pg": "^8.21.0"
   }
 }
