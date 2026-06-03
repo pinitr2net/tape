@@ -213,6 +213,7 @@ app.get('/status/:jobId', async (req, res) => {
     console.log('RunPod status:', data.status);
 
     if (data.status === 'FAILED') {
+      console.error('RunPod FAILED:', JSON.stringify(data));
       jobRecordings.delete(jobId);
       return res.status(500).json({ error: data.error || 'RunPod job failed' });
     }
